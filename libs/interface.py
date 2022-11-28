@@ -74,6 +74,8 @@ def parse_arguments():
         default='{}/../db/db.sql'.format(script_dir), required=False)
 
     subparsers = parser.add_subparsers(help='Functions', dest='subparser_name')
+
+    # Day
     parse_day = subparsers.add_parser('day', help='Location, ..')
     parse_day.add_argument(
         'location',
@@ -89,7 +91,52 @@ def parse_arguments():
         '--edit',
         help='Edit the selected element',
         action='store_true', required=False)
+    parse_day.add_argument(
+        '--list',
+        help='List all the entries',
+        action='store_true', required=False)
+    parse_day.add_argument(
+        '--delete',
+        help='Delete the selected date entry',
+        action='store_true', required=False)
 
+    # Report
+    parse_report = subparsers.add_parser('report', help='Reporting')
+    report_items_list = {'days'}
+    parse_report.add_argument(
+        'item',
+        help='Elements that should be reported [{}]'.format('/'.join(e for e in report_items_list)),
+        nargs=1, type=str, default=None)
+    parse_report.add_argument(
+        '--date',
+        help='Set the date for the entry (format: ISO: YYYY-MM-DD)',
+        type=str,
+        default=datetime.date.today().isoformat(),
+        required=False)
+    parse_report_period = parse_report.add_mutually_exclusive_group()
+    parse_report_period.add_argument(
+        '--year',
+        help='Report for one year up to the selected date',
+        action='store_true', required=False)
+    parse_report_period.add_argument(
+        '--month',
+        help='Report for one month up to the selected date',
+        action='store_true', required=False)
+    parse_report_period.add_argument(
+        '--week',
+        help='Report for one week up to the selected date',
+        action='store_true', required=False)
+    parse_report_period.add_argument(
+        '--day',
+        help='Report for one day up to the selected date',
+        action='store_true', required=False)
+    parse_report_period.add_argument(
+        '--start-date',
+        help='Set the start date for the report (format: ISO: YYYY-MM-DD)',
+        type=str,
+        default=datetime.date.today().isoformat(),
+        required=False)
+    
 
     try:
         options = parser.parse_args()
@@ -133,6 +180,30 @@ def parse_arguments():
 
     if 'location' in options:
         parameters['location'] = options.location
+
+    if 'item' in options:
+        if options.item[0] not in report_items_list:
+            sys.stderr.write('Report item ({}) not known\n'.format(options.item[0]))
+            sys.exit(1)
+        parameters['item'] = options.item[0]
+
+    if 'function' in parameters and 'report' == parameters['function']:
+        if options.year:
+            parameters['duration'] = 'year'
+        elif options.month:
+            parameters['duration'] = 'month'
+        elif options.week:
+            parameters['duration'] = 'week'
+        elif options.day:
+            parameters['duration'] = 'day'
+        else:
+            # By default we choose a monthly review
+            parameters['duration'] = 'start'
+            try:
+                parameters['start date'] = datetime.date.fromisoformat(options.start_date)
+            except ValueError:
+                sys.stderr.write('Wrong date format, please use the ISO format: YYYY-MM-DD\n')
+                sys.exit(1)
 
     parameters['sqlite file'] = options.sqlite_file
 
