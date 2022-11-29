@@ -46,6 +46,24 @@ class db:
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS days (date DATE, typeId INT);')
 
+            # Types of clocks
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS clockTypes (id INT, key STR, desc STR);')
+            cur.execute(
+                'INSERT INTO clockTypes (id, key, desc) VALUES(1, "in", "Clock-in");')
+            cur.execute(
+                'INSERT INTO clockTypes (id, key, desc) VALUES(2, "out", "Clock-out");')
+
+            # Clocks
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS clocks (id INT, date DATE, time TIME, typeId INT);')
+
+            # Last ID
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS lastId (tablename STR, lastId INT);')
+            cur.execute(
+                'INSERT INTO lastId (tablename, lastId) VALUES("clocks", 0);')
+
     #===============================================
     # Days functions
     #-----------------------------------------------
@@ -145,6 +163,60 @@ class db:
 
         return out
 
+
+    #===============================================
+    # Clocks functions
+    #-----------------------------------------------
+    def enter_clock(self, values):
+        # Get the values
+        val_date, val_time, val_io = values
+
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Get the type ID
+            cur.execute('SELECT id FROM clockTypes WHERE key=?;', (val_io,))
+            rows = cur.fetchall()
+            tid = rows[0][0]
+
+            # Get the last entered Id
+            cur.execute('SELECT lastId FROM lastId WHERE tablename="clocks";')
+            rows=cur.fetchall()
+            new_id = int(rows[0][0])+1
+
+            # New entry
+            cur.execute('INSERT INTO clocks (id, date, time, typeId) VALUES(?, ?, ?, ?);', (new_id, val_date.isoformat(), val_time, tid))
+
+            # Update the last Id
+            cur.execute('UPDATE lastId SET lastId=? WHERE tablename="clocks";', (new_id,))
+    
+
+    def get_all_clocks(self):
+        out = None
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Check if there are no entry for that date
+            cur.execute(
+                'SELECT c.id, c.date,c.time,t.desc FROM clocks AS c INNER JOIN clockTypes AS t ON c.typeId=t.id ORDER BY c.date, c.time;')
+            out = cur.fetchall()
+
+        return out
+
+    def read_clocks(self, values):
+        val_date, val_time = values
+        out = None
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Check if there are no entry for that date
+            cur.execute(
+                'SELECT MAX(c.time),t.desc FROM clocks AS c INNER JOIN clockTypes AS t ON c.typeId=t.id WHERE c.date=? AND c.time<? ORDER BY c.time;', (val_date, val_time))
+            out = cur.fetchall()
+
+        return out
+
+
     #===============================================
     # Generic functions
     #-----------------------------------------------
@@ -154,6 +226,8 @@ class db:
 
         if 'day' == table:
             self.enter_day(values)
+        elif 'clock' == table:
+            self.enter_clock(values)
 
 
     def get_all(self, table):
@@ -163,6 +237,8 @@ class db:
         out = None
         if 'day' == table:
             out = self.get_all_days()
+        elif 'clock' == table:
+            out = self.get_all_clocks()
         return out
 
     def delete(self, table, values):
@@ -185,3 +261,5 @@ class db:
 
         if 'day' == table:
             return(self.read_days(values))
+        elif 'clock' == table:
+            return(self.read_clocks(values))

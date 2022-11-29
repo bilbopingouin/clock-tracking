@@ -137,6 +137,32 @@ def parse_arguments():
         default=datetime.date.today().isoformat(),
         required=False)
     
+    # Clock
+    parse_clock = subparsers.add_parser('clock', help='Clock in/out')
+    parse_clock.add_argument(
+        'in_out',
+        help='Specify if it is a clock-in or a clock-out',
+        nargs='?', type=str, default=None)
+    parse_clock.add_argument(
+        '--date',
+        help='Set the date for the entry (format: ISO: YYYY-MM-DD)',
+        type=str,
+        default=datetime.date.today().isoformat(),
+        required=False)
+    parse_clock.add_argument(
+        '--time',
+        help='Set the time for the entry (format: 03:45)',
+        type=str,
+        default=datetime.datetime.now().time().isoformat(timespec='minutes'),
+        required=False)
+    parse_clock.add_argument(
+        '--list',
+        help='List all the entries',
+        action='store_true', required=False)
+    parse_clock.add_argument(
+        '--status',
+        help='Are we clocked in or out?',
+        action='store_true', required=False)
 
     try:
         options = parser.parse_args()
@@ -164,6 +190,9 @@ def parse_arguments():
 
     if 'time' in options:
         parameters['time'] = options.time
+
+    if 'status' in options:
+        parameters['status'] = options.status
 
     if 'date' in options:
         try:
@@ -203,6 +232,14 @@ def parse_arguments():
                 parameters['start date'] = datetime.date.fromisoformat(options.start_date)
             except ValueError:
                 sys.stderr.write('Wrong date format, please use the ISO format: YYYY-MM-DD\n')
+                sys.exit(1)
+
+    if 'in_out' in options:
+        parameters['in_out'] = options.in_out
+        if parameters['in_out'] is not None:
+            parameters['in_out'] = parameters['in_out'].lower()
+            if parameters['in_out'] not in {'in', 'out'}:
+                sys.stderr.write('Unknown option ({}), please select \'in\' or \'out\''.format(parameters['in_out']))
                 sys.exit(1)
 
     parameters['sqlite file'] = options.sqlite_file
