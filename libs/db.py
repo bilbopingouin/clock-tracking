@@ -58,11 +58,17 @@ class db:
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS clocks (id INT, date DATE, time TIME, typeId INT);')
 
+            # Categories
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS categories (id INT, name STR, desc STR);')
+
             # Last ID
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS lastId (tablename STR, lastId INT);')
             cur.execute(
                 'INSERT INTO lastId (tablename, lastId) VALUES("clocks", 0);')
+            cur.execute(
+                'INSERT INTO lastId (tablename, lastId) VALUES("categories", 0);')
 
     #===============================================
     # Days functions
@@ -217,6 +223,70 @@ class db:
         return out
 
 
+
+    #===============================================
+    # Categories functions
+    #-----------------------------------------------
+    def enter_cat(self, values):
+        # Get the values
+        val_name, val_desc, val_edit = values
+
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Check if the entry does not already exist
+            cur.execute('SELECT * FROM categories WHERE name=?;', (val_name,))
+            rows = cur.fetchall()
+            if rows:
+                if not val_edit:
+                    sys.stderr.write('The given category ({}) is already known as {}\n'.format(val_name, rows[0][2]))
+                    sys.exit(1)
+                else:
+                    if self.debug:
+                        print('Updating {} to {}'.format(val_name, val_desc))
+                    cur.execute('UPDATE categories SET desc=? WHERE name=?', (val_desc, val_name))
+
+            else:
+                # Get the last entered Id
+                cur.execute('SELECT lastId FROM lastId WHERE tablename="categories";')
+                rows=cur.fetchall()
+                new_id = int(rows[0][0])+1
+
+                # New entry
+                cur.execute('INSERT INTO categories (id, name, desc) VALUES(?, ?, ?);', (new_id, val_name, val_desc))
+
+                # Update the last Id
+                cur.execute('UPDATE lastId SET lastId=? WHERE tablename="categories";', (new_id,))
+    
+
+    def get_all_cat(self):
+        out = None
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            cur.execute(
+                'SELECT name, desc FROM categories;')
+            out = cur.fetchall()
+
+        return out
+
+    def delete_cat(self, values):
+        val_name, = values
+        if self.debug:
+            print('val_name={}'.format(val_name))
+
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Check if the entry does not already exist
+            cur.execute('SELECT * FROM categories WHERE name=?;', (val_name,))
+            rows = cur.fetchall()
+
+            # Delete it
+            if rows:
+                cur.execute('DELETE FROM categories WHERE name=?', (val_name,))
+
+
     #===============================================
     # Generic functions
     #-----------------------------------------------
@@ -228,6 +298,8 @@ class db:
             self.enter_day(values)
         elif 'clock' == table:
             self.enter_clock(values)
+        elif 'cat' == table:
+            self.enter_cat(values)
 
 
     def get_all(self, table):
@@ -239,6 +311,8 @@ class db:
             out = self.get_all_days()
         elif 'clock' == table:
             out = self.get_all_clocks()
+        elif 'cat' == table:
+            out = self.get_all_cat()
         return out
 
     def delete(self, table, values):
@@ -247,6 +321,8 @@ class db:
 
         if 'day' == table:
             self.delete_days(values)
+        elif 'cat' == table:
+            self.delete_cat(values)
 
     def report(self, table, start_date, end_date):
         if self.debug:

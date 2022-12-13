@@ -71,7 +71,7 @@ def parse_arguments():
         '--sqlite-file',
         help='File when using SQLite3 [default: {}/db/db.sql]'.format(
             script_dir),
-        default='{}/../db/db.sql'.format(script_dir), required=False)
+        type=str, default='{}/../db/db.sql'.format(script_dir), required=False)
 
     subparsers = parser.add_subparsers(help='Functions', dest='subparser_name')
 
@@ -163,6 +163,33 @@ def parse_arguments():
         '--status',
         help='Are we clocked in or out?',
         action='store_true', required=False)
+    
+    # Category
+    parse_cat = subparsers.add_parser('category', help='Booking categories')
+    parse_cat.add_argument(
+        'cat',
+        help='New category to be entered. It should contain the name of the category (single word) followed by a description. E.g. "admin General administrative tasks"',
+        nargs='*', type=str, default=[])
+    parse_cat.add_argument(
+        '--name',
+        help='Name of the category',
+        type=str, default=None, required=False)
+    parse_cat.add_argument(
+        '--description',
+        help='Description of the category',
+        type=str, default=None, required=False)
+    parse_cat.add_argument(
+        '--list',
+        help='List all the entries',
+        action='store_true', required=False)
+    parse_cat.add_argument(
+        '--edit',
+        help='Edit the selected category entry',
+        action='store_true', required=False)
+    parse_cat.add_argument(
+        '--delete',
+        help='Delete the selected category entry',
+        action='store_true', required=False)
 
     try:
         options = parser.parse_args()
@@ -193,6 +220,12 @@ def parse_arguments():
 
     if 'status' in options:
         parameters['status'] = options.status
+
+    if 'name' in options:
+        parameters['name'] = options.name
+
+    if 'description' in options:
+        parameters['description'] = options.description
 
     if 'date' in options:
         try:
@@ -243,6 +276,37 @@ def parse_arguments():
                 sys.exit(1)
 
     parameters['sqlite file'] = options.sqlite_file
+
+    """
+    We need two parameters for the categories:
+    - name (single word)
+    - description (one or more words)
+    Those can be either defined individually using the key arguments --name / --description or using the positional argument. Or even using a combination of both.
+
+    If no key argument is used. The first word of the positional argument is the name, the rest is taken as description.
+    If both keys are used, we ignore the positional argument.
+    If the name key is used, we assume the positional argument is the description
+    """
+    
+    if 'cat' in options:
+        cat_str = options.cat
+        if cat_str:
+            if parameters['name'] is not None and parameters['description'] is not None:
+                print('The data have been doubly defined. Check your entry, bu we proceed anyway.')
+            elif parameters['name'] is None and parameters['description'] is None:
+                if 1==len(cat_str) and not parameters['delete']:
+                    sys.stderr.write('The category hasn\'t been fully determined. Use a single word followed by a description.\n')
+                    sys.exit(1)
+                parameters['name'] = cat_str[0]
+                if 1<len(cat_str):
+                    parameters['description'] = ' '.join(cat_str[1:])
+            elif parameters['name'] is not None and parameters['description'] is None:
+                parameters['description'] = ' '.join(cat_str)
+            elif parameters['name'] is None and parameters['description'] is not None:
+                parameters['name'] = cat_str[0]
+                if len(cat_str)>1:
+                    print('The description seems to be provided twice. Please check your entry. We proceed nonetheless.')
+
 
     # Print all the parameters
     if parameters['debug']:
