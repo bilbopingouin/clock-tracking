@@ -190,6 +190,37 @@ def parse_arguments():
         '--delete',
         help='Delete the selected category entry',
         action='store_true', required=False)
+    
+    # Project
+    parse_prj = subparsers.add_parser('project', help='Booking project')
+    parse_prj.add_argument(
+        'prj',
+        help='New project to be entered. It should contain the name of the project (single word) followed by the name of the category and a description. E.g. "mycustomer-101 customer The project 101 with the famous mycustomer"',
+        nargs='*', type=str, default=[])
+    parse_prj.add_argument(
+        '--name',
+        help='Name of the project',
+        type=str, default=None, required=False)
+    parse_prj.add_argument(
+        '--description',
+        help='Description of the project',
+        type=str, default=None, required=False)
+    parse_prj.add_argument(
+        '--category',
+        help='Category of the project',
+        type=str, default=None, required=False)
+    parse_prj.add_argument(
+        '--list',
+        help='List all the entries',
+        action='store_true', required=False)
+    parse_prj.add_argument(
+        '--edit',
+        help='Edit the selected project entry',
+        action='store_true', required=False)
+    parse_prj.add_argument(
+        '--delete',
+        help='Delete the selected project entry',
+        action='store_true', required=False)
 
     try:
         options = parser.parse_args()
@@ -226,6 +257,9 @@ def parse_arguments():
 
     if 'description' in options:
         parameters['description'] = options.description
+
+    if 'category' in options:
+        parameters['category'] = options.category
 
     if 'date' in options:
         try:
@@ -287,25 +321,54 @@ def parse_arguments():
     If both keys are used, we ignore the positional argument.
     If the name key is used, we assume the positional argument is the description
     """
-    
     if 'cat' in options:
         cat_str = options.cat
         if cat_str:
-            if parameters['name'] is not None and parameters['description'] is not None:
-                print('The data have been doubly defined. Check your entry, bu we proceed anyway.')
-            elif parameters['name'] is None and parameters['description'] is None:
-                if 1==len(cat_str) and not parameters['delete']:
-                    sys.stderr.write('The category hasn\'t been fully determined. Use a single word followed by a description.\n')
-                    sys.exit(1)
-                parameters['name'] = cat_str[0]
-                if 1<len(cat_str):
-                    parameters['description'] = ' '.join(cat_str[1:])
-            elif parameters['name'] is not None and parameters['description'] is None:
-                parameters['description'] = ' '.join(cat_str)
-            elif parameters['name'] is None and parameters['description'] is not None:
-                parameters['name'] = cat_str[0]
-                if len(cat_str)>1:
-                    print('The description seems to be provided twice. Please check your entry. We proceed nonetheless.')
+            # We have some positional argument
+
+            index=0
+            if parameters['name'] is None:
+                parameters['name'] = cat_str[index]
+                index += 1
+
+            if parameters['description'] is None and len(cat_str)>index:
+                parameters['description'] = ' '.join(cat_str[index:])
+
+    """
+    We need three parameters for the projects:
+    - name (single word)
+    - category (single word)
+    - description (one or more words)
+    Those can be either defined individually using the key arguments --name / --description or using the positional argument. Or even using a combination of both.
+
+    We consider if the key is used or not.
+    | case | name | category | description | Interpret the positional arguments |
+    | ---- | ---- | -------- | ----------- | --- |
+    |    1 | no   | no       | no          | name=A[0], cat=A[1], desc=A[2:] |
+    |    2 | yes  | no       | no          | cat=A[0], desc=A[1:] |
+    |    3 | yes  | yes      | no          | desc=A[0:] |
+    |    4 | no   | yes      | no          | name=A[0], desc=A[1:] |
+    |    5 | no   | yes      | yes         | name=A[0] |
+    |    6 | yes  | yes      | yes         | - |
+    |    7 | yes  | no       | yes         | cat=A[0] |
+    |    8 | no   | no       | yes         | name=A[0], cat=A[1] |
+    """
+    if 'prj' in options:
+        prj_str = options.prj
+        if prj_str:
+            # We have some positional argument
+
+            index=0
+            if parameters['name'] is None:
+                parameters['name'] = prj_str[index]
+                index += 1
+
+            if parameters['category'] is None and len(prj_str)>index:
+                parameters['category'] = prj_str[index]
+                index += 1
+
+            if parameters['description'] is None and len(prj_str)>index:
+                parameters['description'] = ' '.join(prj_str[index:])
 
 
     # Print all the parameters

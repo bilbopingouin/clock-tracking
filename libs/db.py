@@ -62,6 +62,10 @@ class db:
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS categories (id INT, name STR, desc STR);')
 
+            # Projects
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS projects (id INT, name STR, catId INT, desc STR);')
+
             # Last ID
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS lastId (tablename STR, lastId INT);')
@@ -69,6 +73,8 @@ class db:
                 'INSERT INTO lastId (tablename, lastId) VALUES("clocks", 0);')
             cur.execute(
                 'INSERT INTO lastId (tablename, lastId) VALUES("categories", 0);')
+            cur.execute(
+                'INSERT INTO lastId (tablename, lastId) VALUES("projects", 0);')
 
     #===============================================
     # Days functions
@@ -225,6 +231,79 @@ class db:
 
 
     #===============================================
+    # Projects functions
+    #-----------------------------------------------
+    def enter_prj(self, values):
+        # Get the values
+        val_name, val_cat, val_desc, val_edit = values
+
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Check if the entry does not already exist
+            cur.execute('SELECT * FROM projects WHERE name=?;', (val_name,))
+            rows = cur.fetchall()
+            if rows:
+                if not val_edit:
+                    sys.stderr.write('The given category ({}) is already known as {}\n'.format(val_name, rows[0][2]))
+                    sys.exit(1)
+                else:
+                    if self.debug:
+                        print('Updating {} to {}'.format(val_name, val_desc))
+                    cur.execute('UPDATE projects SET desc=? WHERE name=?', (val_desc, val_name))
+                    cur.execute('UPDATE projects SET catId=? WHERE name=?', (val_cat, val_name))
+
+            else:
+                # Check that the category is known
+                cur.execute('SELECT id FROM categories WHERE name=?;', (val_cat,))
+                rows=cur.fetchall()
+
+                if not rows:
+                    sys.stderr.write('Unkown category\n')
+                    sys.exit(1)
+                else:
+                    catId = rows[0][0]
+
+                    # Get the last entered Id
+                    cur.execute('SELECT lastId FROM lastId WHERE tablename="projects";')
+                    rows=cur.fetchall()
+                    new_id = int(rows[0][0])+1
+
+                    # New entry
+                    cur.execute('INSERT INTO projects (id, name, catId, desc) VALUES(?, ?, ?, ?);', (new_id, val_name, catId, val_desc))
+
+                    # Update the last Id
+                    cur.execute('UPDATE lastId SET lastId=? WHERE tablename="projects";', (new_id,))
+    
+
+    def get_all_prj(self):
+        out = None
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            cur.execute(
+                'SELECT p.name, c.name, p.desc FROM projects p INNER JOIN categories c ON p.catId = c.id;')
+            out = cur.fetchall()
+
+        return out
+
+    def delete_prj(self, values):
+        val_name, = values
+        if self.debug:
+            print('val_name={}'.format(val_name))
+
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Check if the entry does not already exist
+            cur.execute('SELECT * FROM projects WHERE name=?;', (val_name,))
+            rows = cur.fetchall()
+
+            # Delete it
+            if rows:
+                cur.execute('DELETE FROM projects WHERE name=?', (val_name,))
+
+    #===============================================
     # Categories functions
     #-----------------------------------------------
     def enter_cat(self, values):
@@ -300,6 +379,8 @@ class db:
             self.enter_clock(values)
         elif 'cat' == table:
             self.enter_cat(values)
+        elif 'prj' == table:
+            self.enter_prj(values)
 
 
     def get_all(self, table):
@@ -313,6 +394,8 @@ class db:
             out = self.get_all_clocks()
         elif 'cat' == table:
             out = self.get_all_cat()
+        elif 'prj' == table:
+            out = self.get_all_prj()
         return out
 
     def delete(self, table, values):
@@ -323,6 +406,8 @@ class db:
             self.delete_days(values)
         elif 'cat' == table:
             self.delete_cat(values)
+        elif 'prj' == table:
+            self.delete_prj(values)
 
     def report(self, table, start_date, end_date):
         if self.debug:
