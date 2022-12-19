@@ -66,6 +66,18 @@ class db:
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS projects (id INT, name STR, catId INT, desc STR);')
 
+            # Types of bookings
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS bookingsTypes (id INT, key STR, desc STR);')
+            cur.execute(
+                'INSERT INTO bookingsTypes (id, key, desc) VALUES(1, "start", "Start the action");')
+            cur.execute(
+                'INSERT INTO bookingsTypes (id, key, desc) VALUES(2, "stop", "Stop the action");')
+
+            # Bookings
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS bookings (id INT, date DATE, time TIME, prjId INT, typeId INT, com STR);')
+
             # Last ID
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS lastId (tablename STR, lastId INT);')
@@ -75,6 +87,8 @@ class db:
                 'INSERT INTO lastId (tablename, lastId) VALUES("categories", 0);')
             cur.execute(
                 'INSERT INTO lastId (tablename, lastId) VALUES("projects", 0);')
+            cur.execute(
+                'INSERT INTO lastId (tablename, lastId) VALUES("bookings", 0);')
 
     #===============================================
     # Days functions
@@ -367,6 +381,68 @@ class db:
 
 
     #===============================================
+    # Bookings functions
+    #-----------------------------------------------
+    def enter_book(self, values):
+        # Get the values
+        val_time, val_date, val_startstop, val_prj, val_m, val_edit = values
+
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Get the project id
+            cur.execute('SELECT id FROM projects WHERE name=?', (val_prj,))
+            rows=cur.fetchall()
+
+            if rows:
+                prjid = rows[0][0]
+
+                # Get the last entered Id
+                cur.execute('SELECT lastId FROM lastId WHERE tablename="bookings";')
+                rows=cur.fetchall()
+                new_id = int(rows[0][0])+1
+
+                # Get the type Id
+                cur.execute('SELECT id FROM bookingsTypes WHERE key=?', (val_startstop,))
+                rows=cur.fetchall()
+                typeid=rows[0][0]
+
+                # New entry
+                cur.execute('INSERT INTO bookings (id, date, time, prjId, typeId, com) VALUES(?, ?, ?, ?, ?, ?);', (new_id, val_date, val_time, prjid, typeid, val_m))
+
+                # Update the last Id
+                cur.execute('UPDATE lastId SET lastId=? WHERE tablename="bookings";', (new_id,))
+    
+
+    def get_all_book(self):
+        out = None
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            cur.execute(
+                'SELECT name, desc FROM categories;')
+            out = cur.fetchall()
+
+        return out
+
+    def delete_book(self, values):
+        val_name, = values
+        if self.debug:
+            print('val_name={}'.format(val_name))
+
+        with sqlite3.connect(self.filename) as con:
+            cur = con.cursor()
+
+            # Check if the entry does not already exist
+            cur.execute('SELECT * FROM categories WHERE name=?;', (val_name,))
+            rows = cur.fetchall()
+
+            # Delete it
+            if rows:
+                cur.execute('DELETE FROM categories WHERE name=?', (val_name,))
+
+
+    #===============================================
     # Generic functions
     #-----------------------------------------------
     def enter(self, table, values):
@@ -381,6 +457,8 @@ class db:
             self.enter_cat(values)
         elif 'prj' == table:
             self.enter_prj(values)
+        elif 'book' == table:
+            self.enter_book(values)
 
 
     def get_all(self, table):

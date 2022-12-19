@@ -222,6 +222,48 @@ def parse_arguments():
         help='Delete the selected project entry',
         action='store_true', required=False)
 
+    # Bookings
+    parse_book = subparsers.add_parser('booking', help='Booking')
+    parse_book.add_argument(
+        'start_stop',
+        help='Specify if it is a start or stop of the activity',
+        nargs='?', type=str, default=None)
+    parse_book.add_argument(
+        '--date',
+        help='Set the date for the entry (format: ISO: YYYY-MM-DD)',
+        type=str,
+        default=datetime.date.today().isoformat(),
+        required=False)
+    parse_book.add_argument(
+        '--time',
+        help='Set the time for the entry (format: 03:45)',
+        type=str,
+        default=datetime.datetime.now().time().isoformat(timespec='minutes'),
+        required=False)
+    parse_book.add_argument(
+        '--list',
+        help='List all the entries',
+        action='store_true', required=False)
+    parse_book.add_argument(
+        '--message', '-m',
+        help='Add a comment for the activity',
+        type=str,
+        default=None,
+        required=False)
+    parse_book.add_argument(
+        '--project',
+        help='Which project have you booked time for?',
+        type=str,
+        required=False, default=None)
+    parse_book.add_argument(
+        '--edit',
+        help='Edit the selected booking entry',
+        action='store_true', required=False)
+    parse_book.add_argument(
+        '--delete',
+        help='Delete the selected booking entry',
+        action='store_true', required=False)
+
     try:
         options = parser.parse_args()
     except:
@@ -260,6 +302,12 @@ def parse_arguments():
 
     if 'category' in options:
         parameters['category'] = options.category
+
+    if 'message' in options:
+        parameters['message'] = options.message
+
+    if 'project' in options:
+        parameters['project'] = options.project
 
     if 'date' in options:
         try:
@@ -369,6 +417,15 @@ def parse_arguments():
 
             if parameters['description'] is None and len(prj_str)>index:
                 parameters['description'] = ' '.join(prj_str[index:])
+
+    if 'start_stop' in options:
+        parameters['start_stop'] = options.start_stop
+        if parameters['start_stop'] is not None:
+            parameters['start_stop'] = parameters['start_stop'].lower()
+            if parameters['start_stop'] not in {'start', 'stop'}:
+                sys.stderr.write('Unknown option ({}), please select \'start\' or \'stop\''.format(parameters['start_stop']))
+                sys.exit(1)
+
 
 
     # Print all the parameters
